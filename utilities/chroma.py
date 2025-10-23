@@ -1,6 +1,5 @@
 import chromadb
 import chromadb.utils.embedding_functions as embedding_functions
-import uuid
 import os
 from dotenv import load_dotenv
 
@@ -22,25 +21,22 @@ def create_chroma_collection(collection_name):
         metadata={"hnsw:space": "cosine"}
     )
 
-    print("\n>> COLLECTION INITIALISED\n")
-
     return collection
 
 # Store chunks
 def store_chunks_in_chroma_collection(collection, document_name, document_chunk, document_id):
 
-    guid = uuid.uuid4()
-
-    guid_string = str(guid)
-
     collection.add(
+        metadatas=[{
+            "document": document_name,
+            "chunk_id": document_id
+        }],
         documents=[document_chunk],
-        metadatas=[{"document_name": document_name}],
         ids=[document_id]
     )
-
+    
 # Query
-def query_chroma_collection(collection, query, n_results):
+def query_chroma_collection(collection, query, n_results=3):
 
     documents = collection.query(
         query_texts=[query],
