@@ -4,3 +4,4 @@ python-dotenv
 chromadb
 PyPDF2
 python-docx
+streamlit-aggrid

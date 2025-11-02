@@ -1,0 +1,10 @@
+[theme]
+base="light"
+backgroundColor="#ffffff"
+secondaryBackgroundColor="#eef6f3"
+primaryColor="#06402b"
+borderColor="#06402b"
+dataframeHeaderBackgroundColor="#06402b"
+
+[theme.sidebar]
+backgroundColor="#06402b"
