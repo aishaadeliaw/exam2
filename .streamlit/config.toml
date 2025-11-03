@@ -1,10 +1,7 @@
 [theme]
 base="light"
-backgroundColor="#ffffff"
-secondaryBackgroundColor="#eef6f3"
-primaryColor="#06402b"
-borderColor="#06402b"
-dataframeHeaderBackgroundColor="#06402b"
-
-[theme.sidebar]
-backgroundColor="#06402b"
+backgroundColor="#eef6f3"
+secondaryBackgroundColor="#ffffff"
+primaryColor="#0b7851"
+borderColor="#0b7851"
+dataframeHeaderBackgroundColor="#eef6f3"
