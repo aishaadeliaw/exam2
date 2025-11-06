@@ -2,13 +2,16 @@ import streamlit as st
 import os
 import PyPDF2
 from utilities.chroma import create_chroma_collection, store_chunks_in_chroma_collection
-from utilities.chunk_by_sentences import chunk_by_sentences
+from utilities.chunk import chunk_by_sentences
 
 def upload_document():
 
     # Session states
     if "collection" not in st.session_state:
         st.session_state.collection = None
+    
+    if "collection_name" not in st.session_state:
+        st.session_state.collection_name = None
 
     if "chunks" not in st.session_state:
         st.session_state.chunks = None
@@ -23,6 +26,7 @@ def upload_document():
 
     if not uploaded_documents:
         st.session_state.collection = None
+        st.session_state.collection_name = None
         st.session_state.chunks = None
 
     # Create Chroma collection
@@ -31,6 +35,7 @@ def upload_document():
     if uploaded_documents and collection_name and st.button("Upload and Create Collection"):
         collection = create_chroma_collection(f"{collection_name}")
         st.session_state.collection = collection
+        st.session_state.collection_name = collection_name
 
         # Store documents
         with st.spinner("Uploading and processing documents..."):

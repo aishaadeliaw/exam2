@@ -4,18 +4,18 @@ import io
 import pandas as pd
 from docx import Document
 from dotenv import load_dotenv
-from utilities.llm_agent import agent_with_search
+from utilities.llm_agent import agent_with_search_gpt_5, agent_with_search_gpt_5_mini
 
 def report_csv():
 
     load_dotenv()
 
     # Session states
-    if "agent_still_searching" not in st.session_state:
-        st.session_state.agent_still_searching = False
-
     if "user_objective" not in st.session_state:
         st.session_state.user_objective = None
+        
+    if "agent_still_searching" not in st.session_state:
+        st.session_state.agent_still_searching = False
 
     if "input_list" not in st.session_state:
         st.session_state.input_list = None
@@ -28,8 +28,8 @@ def report_csv():
 
     # Upload documents
     if not st.session_state.uploaded_documents:
-        st.session_state.agent_still_searching = None
         st.session_state.user_objective = None
+        st.session_state.agent_still_searching = None
         st.session_state.input_list = None
         st.session_state.report = None
         st.session_state.clean_csv = None
@@ -47,7 +47,7 @@ def report_csv():
     # Number of obligations
     user_number_of_obligations = st.selectbox(
         "How many obligations should the agent find?",
-        ("At least 10", "At least 20", "At least 30", "At least 40", "At least 50", "At least 60"),
+        ("At least 10", "At least 20", "At least 30", "At least 40", "At least 50", "At least 60", "At least 70", "At least 80"),
         index=None
     )
 
@@ -58,10 +58,14 @@ def report_csv():
         index=None
     )
 
+    # GPT model
+    options = ["GPT-5", "GPT-5-mini"]
+    user_gpt_model = st.pills("Which GPT model would you like to use?", options, selection_mode="single")
+
     # Set user objective
     if st.session_state.chunks and st.button("Set Objective and Run Agent"):
         
-        if not user_sector or not user_company_type or not user_jurisdiction or not user_specific_objective or not user_notes or not user_number_of_obligations or not user_number_of_loops:
+        if not user_sector or not user_company_type or not user_jurisdiction or not user_specific_objective or not user_notes or not user_number_of_obligations or not user_number_of_loops or not user_gpt_model:
             st.warning("Please fill in all fields to set user objective")
 
         else:            
@@ -105,7 +109,11 @@ def report_csv():
                             
                             number_of_loops += 1
 
-                            input_list = agent_with_search(st.session_state.collection, user_objective, input_list)
+                            if user_gpt_model == "GPT-5":
+                                input_list = agent_with_search_gpt_5(st.session_state.collection, user_objective, input_list)
+                            
+                            else:
+                                input_list = agent_with_search_gpt_5_mini(st.session_state.collection, user_objective, input_list)
 
                             if input_list[-1].get("content")[0].get("text") == "FINISHED":
                                 agent_still_searching = False
@@ -125,67 +133,87 @@ def report_csv():
                         
                         number_of_loops += 1
                         
-                        input_list = agent_with_search(st.session_state.collection, user_objective, input_list)
+                        if user_gpt_model == "GPT-5":
+                            input_list = agent_with_search_gpt_5(st.session_state.collection, user_objective, input_list)
+                            
+                        else:
+                            input_list = agent_with_search_gpt_5_mini(st.session_state.collection, user_objective, input_list)
 
                         if number_of_loops == max_loops:
                             agent_still_searching = False
                 
-                st.session_state.agent_still_searching = agent_still_searching
                 st.session_state.user_objective = user_objective
+                st.session_state.agent_still_searching = agent_still_searching
                 st.session_state.input_list = input_list
 
             except Exception as e:
                 st.error(f"Error running agent: {e}")
 
     # Generate report
-    def generate_report(user_objective, input_list):
-        try:
-            with st.spinner("Generating compliance report..."):
-
-                response = openai.chat.completions.create(
-                    model="gpt-5",
-                    messages=[
-                        {"role": "system",
-                        "content": f"""Your objective is: {user_objective}.
-                        You have retrieved document chunks from ChromaDB searches.
-                        Identify and extract all compliance checklist and obligations relevant to the objective and make a report.
-                        For your report, you must summarise, cite, and reference the actual content of the documents.
-                        Make it clear which information comes from which document, part, section, etc.
-                        Again, you must synthesise information across all documents to provide a comprehensive report.
-                        Your final response must be a structured report that serves as an overview of key compliance obligations.
-                        Ensure white paper/report style. Use headings, subheadings, bullet points, and numbered lists where appropriate. Enter after each section.
-                        Act as if the report will be presented to senior management. Ensure that it is only an overview with emphasis on general actionable items.
-                        Do not make up any information; only use what is contained in the document chunks provided to you.
-                        Do not ask any questions or offer anything to the user and say 'End of report.' at the end of the response."""
-                        },
-                        {"role": "user", "content": str(input_list)}
-                    ]
-                )
-
-                report = response.choices[0].message.content
-
-                if not report or len(report.strip()) <= 20:
-                    st.warning("No report was generated. The model may have produced empty or function-only output. You can retry generating the report")
-                    return None
-
-                return report
-
-        except Exception as e:
-            st.error(f"Error generating report: {e}")
-            return None
-
     if st.session_state.input_list and not st.session_state.agent_still_searching:
         
         st.info("You can generate compliance report now")
 
         if st.button("Generate Report"):
+            try:
+                with st.spinner("Generating compliance report..."):
+                    
+                    if user_gpt_model == "GPT-5":
+                        response = openai.chat.completions.create(
+                        model="gpt-5",
+                        messages=[
+                            {"role": "system",
+                            "content": f"""Your objective is: {st.session_state.user_objective}.
+                            You have retrieved document chunks from ChromaDB searches.
+                            Identify and extract all compliance checklist and obligations relevant to the objective and make a report.
+                            For your report, you must summarise, cite, and reference the actual content of the documents.
+                            Make it clear which information comes from which document, part, section, etc.
+                            Again, you must synthesise information across all documents to provide a comprehensive report.
+                            Your final response must be a structured report that serves as an overview of key compliance obligations.
+                            Ensure white paper/report style. Use headings, subheadings, bullet points, and numbered lists where appropriate. Enter after each title/section.
+                            Act as if the report will be presented to senior management. Ensure that it is only an overview with emphasis on general actionable items.
+                            Do not make up any information; only use what is contained in the document chunks provided to you.
+                            Do not ask any questions or offer anything to the user and say 'End of report.' at the end of the response."""
+                            },
+                            {"role": "user", "content": str(st.session_state.input_list)}
+                        ]
+                    )
+                            
+                    else:
+                        response = openai.chat.completions.create(
+                        model="gpt-5-mini",
+                        messages=[
+                            {"role": "system",
+                            "content": f"""Your objective is: {st.session_state.user_objective}.
+                            You have retrieved document chunks from ChromaDB searches.
+                            Identify and extract all compliance checklist and obligations relevant to the objective and make a report.
+                            For your report, you must summarise, cite, and reference the actual content of the documents.
+                            Make it clear which information comes from which document, part, section, etc.
+                            Again, you must synthesise information across all documents to provide a comprehensive report.
+                            Your final response must be a structured report that serves as an overview of key compliance obligations.
+                            Ensure white paper/report style. Use headings, subheadings, bullet points, and numbered lists where appropriate. Enter after each title/section.
+                            Act as if the report will be presented to senior management. Ensure that it is only an overview with emphasis on general actionable items.
+                            Do not make up any information; only use what is contained in the document chunks provided to you.
+                            Do not ask any questions or offer anything to the user and say 'End of report.' at the end of the response."""
+                            },
+                            {"role": "user", "content": str(st.session_state.input_list)}
+                        ]
+                    )
 
-            report = generate_report(st.session_state.user_objective, st.session_state.input_list)
-            st.session_state.report = report
+                    report = response.choices[0].message.content
+                    st.session_state.report = report
+
+                    if not report or len(report.strip()) <= 20:
+                        st.warning("No report was generated. The model may have produced empty or function-only output. You can retry generating the report")
+                        return None
+
+            except Exception as e:
+                st.error(f"Error generating report: {e}")
+                return None
 
     # Show report
     if st.session_state.report:
-        st.subheader("Compliance Report")
+        st.markdown('<h4 style="color: #b29700;">Compliance Report</h4>', unsafe_allow_html=True)
         st.markdown(st.session_state.report)
 
         # Download report
@@ -202,7 +230,7 @@ def report_csv():
         st.download_button(
             label="Download Report",
             data=doc_io.getvalue(),
-            file_name=f"report_{collection_name}.docx",
+            file_name=f"report_{st.session_state.collection_name}.docx",
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
         )
 
@@ -212,23 +240,42 @@ def report_csv():
         if st.button("Generate CSV"):
             with st.spinner("Generating compliance checklist CSV..."):
 
-                csv_text = openai.responses.create(
-                    model="gpt-5",
-                    input=[{
-                        "role": "user",
-                        "content": f"""Based on the report provided below, create compliance checklist in CSV format.
-                        The checklist must include the following columns:
-                        'Obligation', 'Description', 'Type', 'Source Document', 'Section/Part', 'Deadline/Frequency', 'Responsible Party', 'Sanction/Penalty', and 'Notes'.
-                        'Type' can include 'Continuous', 'Reporting', 'Licensing', and 'Prohibition'.
-                        Most obligations are 'Continuous', except if it is 'Reporting', 'Licensing', or 'Prohibition'.
-                        Ensure that each obligation is clearly defined and includes all relevant details from the report.
-                        Provide the output strictly in CSV format without any additional text or explanation.
+                if user_gpt_model == "GPT-5":
+                    csv_text = openai.responses.create(
+                        model="gpt-5",
+                        input=[{
+                            "role": "user",
+                            "content": f"""Based on the report provided below, create compliance checklist in CSV format.
+                            The checklist must include the following columns:
+                            'Obligation', 'Description', 'Type', 'Source Document', 'Section/Part', 'Deadline/Frequency', 'Responsible Party', 'Sanction/Penalty', and 'Notes'.
+                            'Type' can include 'Continuous', 'Reporting', 'Licensing', and 'Prohibition'.
+                            Most obligations are 'Continuous', except if it is 'Reporting', 'Licensing', or 'Prohibition'.
+                            Ensure that each obligation is clearly defined and includes all relevant details from the report.
+                            Provide the output strictly in CSV format without any additional text or explanation.
 
-                        Report:
-                        {st.session_state.report}"""
-                    }]
-                )
+                            Report:
+                            {st.session_state.report}"""
+                        }]
+                    )
                 
+                else:
+                    csv_text = openai.responses.create(
+                        model="gpt-5-mini",
+                        input=[{
+                            "role": "user",
+                            "content": f"""Based on the report provided below, create compliance checklist in CSV format.
+                            The checklist must include the following columns:
+                            'Obligation', 'Description', 'Type', 'Source Document', 'Section/Part', 'Deadline/Frequency', 'Responsible Party', 'Sanction/Penalty', and 'Notes'.
+                            'Type' can include 'Continuous', 'Reporting', 'Licensing', and 'Prohibition'.
+                            Most obligations are 'Continuous', except if it is 'Reporting', 'Licensing', or 'Prohibition'.
+                            Ensure that each obligation is clearly defined and includes all relevant details from the report.
+                            Provide the output strictly in CSV format without any additional text or explanation.
+
+                            Report:
+                            {st.session_state.report}"""
+                        }]
+                    )
+                    
                 # Fix CSV function
                 def fix_csv(messy_csv):
             
@@ -257,9 +304,9 @@ def report_csv():
                 clean_csv = fix_csv(csv_data)
                 st.session_state.clean_csv = clean_csv
 
-    # Preview and download CSV
+    # Show and download CSV
     if st.session_state.clean_csv:
-        st.subheader("Compliance Checklist CSV")
+        st.markdown('<h4 style="color: #b29700;">Compliance Checklist CSV</h4>', unsafe_allow_html=True)
 
         try:
             df = pd.read_csv(io.StringIO(st.session_state.clean_csv))
@@ -268,7 +315,7 @@ def report_csv():
             st.download_button(
                 label="Download CSV",
                 data=st.session_state.clean_csv.encode('utf-8'),
-                file_name=f"csv_{collection_name}.csv",
+                file_name=f"csv_{st.session_state.collection_name}.csv",
                 mime="text/csv"
             )
 
@@ -278,6 +325,6 @@ def report_csv():
             st.download_button(
                 label="Download Raw CSV",
                 data=st.session_state.clean_csv.encode('utf-8'),
-                file_name=f"raw_csv_{collection_name}.csv",
+                file_name=f"raw_csv_{st.session_state.collection_name}.csv",
                 mime="text/csv"
             )

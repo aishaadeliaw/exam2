@@ -1,4 +1,5 @@
 import streamlit as st
+import openai
 from utilities.tab1 import upload_document
 from utilities.tab2 import report_csv
 from utilities.tab3 import ai_chat
@@ -9,6 +10,50 @@ st.set_page_config(
     layout="wide"
 )
 
+# Check if API key is valid
+def validate_api_key(openai_api_key):
+    try:
+        client = openai.OpenAI(api_key=openai_api_key)
+        response = client.embeddings.create(
+            model="text-embedding-3-small",
+            input="test",
+        )
+        return True, "Valid API key"
+    except openai.AuthenticationError:
+        return False, "Invalid API key"
+    except openai.RateLimitError:
+        return False, "API key valid but rate limit exceeded"
+    except Exception as e:
+        return False, f"Error: {str(e)}"
+        
+# Ask user for API key
+@st.dialog("API Key Input", dismissible=False)
+def api_key_input():
+    name = st.text_input("Name")
+    openai_api_key = st.text_input("Your API key", type="password")
+    
+    if name and openai_api_key and st.button("Submit"):
+        with st.spinner("Validating API key..."):
+
+            is_valid, message = validate_api_key(openai_api_key)
+
+            if is_valid:
+                st.session_state.openai_api_key = openai_api_key
+                st.session_state.name = name
+
+                # Set it globally for OpenAI library
+                openai.api_key = openai_api_key
+                st.success(message)
+                st.rerun()
+
+            else:
+                st.error(message)   
+
+if "openai_api_key" not in st.session_state and "name" not in st.session_state:
+    st.session_state.openai_api_key = None
+    st.session_state.name = None
+    api_key_input()
+    
 # Custom layout
 st.markdown("""
 <style>
@@ -26,14 +71,14 @@ st.markdown("""
     }
     
     .main-title {
-        color: #ffffff;
+        color: #b29700;
         font-size: 2.5rem;
         font-weight: 700;
         margin: 0;
     }
     
     .subtitle {
-        color: #e0e0e0;
+        color: #ffffff;
         font-size: 1.2rem;
         margin-top: 0.5rem;
     }
@@ -53,7 +98,7 @@ st.markdown("""
     .feature-card:hover {
         transform: translateY(-5px);
         box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-        border-color: #0b7851;
+        border-color: #b29700;
     }
     
     .card-icon {
@@ -62,7 +107,7 @@ st.markdown("""
     }
     
     .card-title {
-        color: #0b7851;
+        color: #b29700;
         font-size: 1.3rem;
         font-weight: 600;
         margin: 1rem 0;
@@ -77,7 +122,7 @@ st.markdown("""
     /* Tab styling */
     .stTabs [data-baseweb="tab-list"] {
         gap: 1rem;
-        background-color: #ffffff;
+        background: linear-gradient(90deg, #06402b 0%, #0a5c3d 100%);
         border-radius: 10px;
         padding: 0.7rem;
         box-shadow: 0 2px 8px rgba(0,0,0,0.1);
@@ -88,13 +133,18 @@ st.markdown("""
         font-weight: 600;
         border-radius: 30px;
         font-size: 3rem;
-    }
-    
-    .stTabs [aria-selected="true"] {
-        background: linear-gradient(90deg, #06402b 0%, #0a5c3d 100%);
         color: #ffffff;
     }
     
+    .stTabs [aria-selected="true"] {
+        background: #b29700;
+        color: #ffffff;
+    }
+    
+    .stTabs [data-baseweb="tab"]:hover {
+        color: #b7b7b7;
+    }
+
     /* Sidebar */
     [data-testid="stSidebar"] {
         background: linear-gradient(180deg, #06402b 0%, #0a5c3d 100%);
@@ -116,6 +166,9 @@ st.markdown("""
 
 # Sidebar
 with st.sidebar:
+    if st.session_state.name:
+        st.subheader(f"Hi, {st.session_state.name}!")
+        
     st.markdown("---")
     
     st.markdown("### 💡 About Ask Hukumi 2.0")
@@ -131,7 +184,7 @@ with st.sidebar:
     st.markdown("""
     - ✅ Multi-document upload
     - ✅ Obligation extraction
-    - ✅ Tailor-made analysis
+    - ✅ Tailor-made report and CSV
     - ✅ Smart citations
     - ✅ Downloadable output
     - ✅ Interactive chat
@@ -141,11 +194,9 @@ with st.sidebar:
     
     st.markdown("##### Disclaimer")
     st.caption("""
-    This assistant provides analysis for informational purposes only, which does not constitute 
-    legal advice. Always consult qualified legal professionals.
+    This assistant provides analysis for informational purposes only and does not constitute legal advice.
+    Always consult qualified legal professionals.
     """)
-    
-    st.markdown("---")
 
 # Feature cards
 st.markdown(
@@ -172,7 +223,7 @@ with col2:
         <div class="card-icon">💬</div>
         <div class="card-title">Ask Questions</div>
         <div class="card-description">
-            Chat with AI to enquire about the compliance report and CSV
+            Chat with AI to enquire about the report and CSV
         </div>
     </div>
     """, unsafe_allow_html=True)
@@ -183,7 +234,7 @@ with col3:
         <div class="card-icon">📥</div>
         <div class="card-title">Export Data</div>
         <div class="card-description">
-            Download output in .docx and .csv formats
+            Download output in .docx and .csv format
         </div>
     </div>
     """, unsafe_allow_html=True)
